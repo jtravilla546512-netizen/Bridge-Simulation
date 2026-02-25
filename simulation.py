@@ -5,11 +5,12 @@
 ============================================================
 
 HOW TO USE:
-  1. Change the parameters below to manipulate the simulation
-  2. Run: python simulation.py
-  3. Watch the animated 2D visualization
-  4. Close the window → 3D beam view appears
-  5. Close that → summary results are saved as images
+  1. Run: python simulation.py
+  2. A settings window will appear — adjust parameters there
+  3. Click "Run Simulation" to start
+  4. Watch the animated 2D bridge visualization
+  5. Close the window → 3D bridge view appears
+  6. Close that → summary results are saved as images
 
 SIMULATION LOGIC:
   Each cycle = one repeated load application
@@ -22,24 +23,209 @@ SIMULATION LOGIC:
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.patches as patches
 import matplotlib.animation as animation
 from matplotlib.gridspec import GridSpec
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from matplotlib.path import Path
+import tkinter as tk
+from tkinter import ttk
 import os
+import sys
 
 # ================================================================
-#   MANIPULABLE PARAMETERS — CHANGE THESE TO CONTROL THE SIMULATION
+#   DEFAULT PARAMETERS
 # ================================================================
 
-damage_increment = 0.002      # Damage added per cycle (normalized, 0 to 1)
-failure_threshold = 1.0       # When damage reaches this value → FAILURE
-num_segments = 3              # Number of beam segments (matches conceptual model)
-animation_speed = 20          # Milliseconds between frames (lower = faster)
-cycles_per_frame = 2          # How many cycles to advance per animation frame
+DEFAULT_DAMAGE_INCREMENT = 0.002
+DEFAULT_FAILURE_THRESHOLD = 1.0
+DEFAULT_ANIMATION_SPEED = 20
+DEFAULT_CYCLES_PER_FRAME = 2
+DEFAULT_SEGMENT_FACTORS = [0.5, 1.0, 0.5]
 
-# Segment damage multipliers (center segment gets more damage)
-# Segment 1 (left): 0.5x, Segment 2 (center): 1.0x, Segment 3 (right): 0.5x
-segment_factors = [0.5, 1.0, 0.5]
+num_segments = 3  # Fixed at 3 segments
+
+
+# ================================================================
+#   PARAMETER SETTINGS GUI (Tkinter)
+# ================================================================
+
+def show_settings_gui():
+    """Display a Tkinter settings window and return user-chosen parameters."""
+
+    result = {}
+
+    def on_run():
+        try:
+            result['damage_increment'] = float(entry_damage.get())
+            result['failure_threshold'] = float(entry_threshold.get())
+            result['animation_speed'] = int(entry_anim_speed.get())
+            result['cycles_per_frame'] = int(entry_cpf.get())
+            result['segment_factors'] = [
+                float(entry_factor_left.get()),
+                float(entry_factor_center.get()),
+                float(entry_factor_right.get()),
+            ]
+            root.destroy()
+        except ValueError:
+            error_label.config(text="Invalid input — please enter valid numbers.")
+
+    def on_reset():
+        entry_damage.delete(0, tk.END)
+        entry_damage.insert(0, str(DEFAULT_DAMAGE_INCREMENT))
+        entry_threshold.delete(0, tk.END)
+        entry_threshold.insert(0, str(DEFAULT_FAILURE_THRESHOLD))
+        entry_anim_speed.delete(0, tk.END)
+        entry_anim_speed.insert(0, str(DEFAULT_ANIMATION_SPEED))
+        entry_cpf.delete(0, tk.END)
+        entry_cpf.insert(0, str(DEFAULT_CYCLES_PER_FRAME))
+        entry_factor_left.delete(0, tk.END)
+        entry_factor_left.insert(0, str(DEFAULT_SEGMENT_FACTORS[0]))
+        entry_factor_center.delete(0, tk.END)
+        entry_factor_center.insert(0, str(DEFAULT_SEGMENT_FACTORS[1]))
+        entry_factor_right.delete(0, tk.END)
+        entry_factor_right.insert(0, str(DEFAULT_SEGMENT_FACTORS[2]))
+        slider_damage.set(DEFAULT_DAMAGE_INCREMENT)
+        slider_threshold.set(DEFAULT_FAILURE_THRESHOLD)
+        error_label.config(text="")
+
+    def on_close():
+        sys.exit(0)
+
+    def sync_damage_slider(val):
+        entry_damage.delete(0, tk.END)
+        entry_damage.insert(0, f"{float(val):.4f}")
+
+    def sync_threshold_slider(val):
+        entry_threshold.delete(0, tk.END)
+        entry_threshold.insert(0, f"{float(val):.2f}")
+
+    root = tk.Tk()
+    root.title("Bridge Fatigue Simulation — Settings")
+    root.geometry("520x580")
+    root.resizable(False, False)
+    root.configure(bg='#f0f0f0')
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    style = ttk.Style()
+    style.theme_use('clam')
+
+    # --- Title ---
+    title_frame = tk.Frame(root, bg='#2c3e50', pady=12)
+    title_frame.pack(fill='x')
+    tk.Label(title_frame, text="Bridge Beam Fatigue Simulation",
+             font=('Segoe UI', 14, 'bold'), fg='white', bg='#2c3e50').pack()
+    tk.Label(title_frame, text="Configure simulation parameters below",
+             font=('Segoe UI', 9), fg='#bdc3c7', bg='#2c3e50').pack()
+
+    # --- Main parameters ---
+    param_frame = ttk.LabelFrame(root, text="  Simulation Parameters  ", padding=15)
+    param_frame.pack(fill='x', padx=15, pady=(15, 5))
+
+    # Damage Increment
+    ttk.Label(param_frame, text="Damage Increment (per cycle):").grid(row=0, column=0, sticky='w', pady=4)
+    entry_damage = ttk.Entry(param_frame, width=12)
+    entry_damage.insert(0, str(DEFAULT_DAMAGE_INCREMENT))
+    entry_damage.grid(row=0, column=1, padx=(10, 5), pady=4)
+    slider_damage = ttk.Scale(param_frame, from_=0.0005, to=0.05, orient='horizontal',
+                               command=sync_damage_slider, length=150)
+    slider_damage.set(DEFAULT_DAMAGE_INCREMENT)
+    slider_damage.grid(row=0, column=2, padx=5, pady=4)
+
+    # Failure Threshold
+    ttk.Label(param_frame, text="Failure Threshold:").grid(row=1, column=0, sticky='w', pady=4)
+    entry_threshold = ttk.Entry(param_frame, width=12)
+    entry_threshold.insert(0, str(DEFAULT_FAILURE_THRESHOLD))
+    entry_threshold.grid(row=1, column=1, padx=(10, 5), pady=4)
+    slider_threshold = ttk.Scale(param_frame, from_=0.1, to=5.0, orient='horizontal',
+                                  command=sync_threshold_slider, length=150)
+    slider_threshold.set(DEFAULT_FAILURE_THRESHOLD)
+    slider_threshold.grid(row=1, column=2, padx=5, pady=4)
+
+    # Animation Speed
+    ttk.Label(param_frame, text="Animation Speed (ms/frame):").grid(row=2, column=0, sticky='w', pady=4)
+    entry_anim_speed = ttk.Entry(param_frame, width=12)
+    entry_anim_speed.insert(0, str(DEFAULT_ANIMATION_SPEED))
+    entry_anim_speed.grid(row=2, column=1, padx=(10, 5), pady=4)
+
+    # Cycles per Frame
+    ttk.Label(param_frame, text="Cycles per Frame:").grid(row=3, column=0, sticky='w', pady=4)
+    entry_cpf = ttk.Entry(param_frame, width=12)
+    entry_cpf.insert(0, str(DEFAULT_CYCLES_PER_FRAME))
+    entry_cpf.grid(row=3, column=1, padx=(10, 5), pady=4)
+
+    # --- Segment Factors ---
+    factor_frame = ttk.LabelFrame(root, text="  Segment Damage Factors  ", padding=15)
+    factor_frame.pack(fill='x', padx=15, pady=10)
+
+    ttk.Label(factor_frame, text="Higher factor = more damage per cycle",
+              font=('Segoe UI', 8, 'italic')).grid(row=0, column=0, columnspan=3, pady=(0, 8))
+
+    ttk.Label(factor_frame, text="Left Segment:").grid(row=1, column=0, sticky='w', pady=4)
+    entry_factor_left = ttk.Entry(factor_frame, width=10)
+    entry_factor_left.insert(0, str(DEFAULT_SEGMENT_FACTORS[0]))
+    entry_factor_left.grid(row=1, column=1, padx=10, pady=4)
+
+    ttk.Label(factor_frame, text="Center Segment:").grid(row=2, column=0, sticky='w', pady=4)
+    entry_factor_center = ttk.Entry(factor_frame, width=10)
+    entry_factor_center.insert(0, str(DEFAULT_SEGMENT_FACTORS[1]))
+    entry_factor_center.grid(row=2, column=1, padx=10, pady=4)
+
+    ttk.Label(factor_frame, text="Right Segment:").grid(row=3, column=0, sticky='w', pady=4)
+    entry_factor_right = ttk.Entry(factor_frame, width=10)
+    entry_factor_right.insert(0, str(DEFAULT_SEGMENT_FACTORS[2]))
+    entry_factor_right.grid(row=3, column=1, padx=10, pady=4)
+
+    # Hint labels
+    ttk.Label(factor_frame, text="(0.1 – 2.0)", font=('Segoe UI', 8)).grid(row=1, column=2, sticky='w')
+    ttk.Label(factor_frame, text="(0.1 – 2.0)", font=('Segoe UI', 8)).grid(row=2, column=2, sticky='w')
+    ttk.Label(factor_frame, text="(0.1 – 2.0)", font=('Segoe UI', 8)).grid(row=3, column=2, sticky='w')
+
+    # --- Error label ---
+    error_label = tk.Label(root, text="", fg='red', bg='#f0f0f0', font=('Segoe UI', 9))
+    error_label.pack(pady=(5, 0))
+
+    # --- Buttons ---
+    btn_frame = tk.Frame(root, bg='#f0f0f0')
+    btn_frame.pack(pady=15)
+
+    run_btn = tk.Button(btn_frame, text="▶  Run Simulation", font=('Segoe UI', 11, 'bold'),
+                        bg='#27ae60', fg='white', padx=20, pady=8, relief='flat',
+                        activebackground='#2ecc71', cursor='hand2', command=on_run)
+    run_btn.grid(row=0, column=0, padx=10)
+
+    reset_btn = tk.Button(btn_frame, text="↺  Reset Defaults", font=('Segoe UI', 10),
+                          bg='#7f8c8d', fg='white', padx=15, pady=6, relief='flat',
+                          activebackground='#95a5a6', cursor='hand2', command=on_reset)
+    reset_btn.grid(row=0, column=1, padx=10)
+
+    # Center the window on screen
+    root.update_idletasks()
+    w = root.winfo_width()
+    h = root.winfo_height()
+    x = (root.winfo_screenwidth() // 2) - (w // 2)
+    y = (root.winfo_screenheight() // 2) - (h // 2)
+    root.geometry(f"+{x}+{y}")
+
+    root.mainloop()
+
+    if not result:
+        sys.exit(0)
+
+    return result
+
+
+# ================================================================
+#   LAUNCH SETTINGS GUI
+# ================================================================
+
+params = show_settings_gui()
+
+damage_increment = params['damage_increment']
+failure_threshold = params['failure_threshold']
+animation_speed = params['animation_speed']
+cycles_per_frame = params['cycles_per_frame']
+segment_factors = params['segment_factors']
 
 # ================================================================
 #   END OF PARAMETERS — Code below runs the simulation
@@ -142,62 +328,169 @@ while True:
 print()
 
 # ================================================================
-#   ANIMATED 2D VISUALIZATION
+#   ANIMATED 2D VISUALIZATION — Enhanced Bridge Design
 # ================================================================
 
-print("  Opening animated 2D visualization...")
+print("  Opening animated 2D bridge visualization...")
 
-fig = plt.figure(figsize=(14, 9))
-fig.patch.set_facecolor('#fafafa')
-gs = GridSpec(3, 3, figure=fig, hspace=0.45, wspace=0.35)
+fig = plt.figure(figsize=(15, 10))
+fig.patch.set_facecolor('#e8f4f8')
+gs = GridSpec(3, 3, figure=fig, hspace=0.45, wspace=0.35,
+              height_ratios=[1.4, 0.8, 0.8])
 
 # Title
 fig.suptitle("Structural Fatigue Simulation of a Bridge Beam",
              fontsize=16, fontweight='bold', y=0.97, color='#2c3e50')
 
-# --- Top row: Beam visualization ---
+# --- Top row: Enhanced Bridge visualization ---
 ax_beam = fig.add_subplot(gs[0, :])
-ax_beam.set_xlim(-0.5, num_segments + 0.5)
-ax_beam.set_ylim(-0.8, 1.8)
+ax_beam.set_xlim(-1.5, num_segments + 1.5)
+ax_beam.set_ylim(-2.5, 3.5)
 ax_beam.set_aspect('equal')
 ax_beam.axis('off')
+ax_beam.set_facecolor('#d4eaf7')
 
-# Static beam elements
-ax_beam.set_title("Bridge Beam", fontsize=12, fontweight='bold', color='#2c3e50')
+ax_beam.set_title("Bridge Beam — Structural View", fontsize=12,
+                   fontweight='bold', color='#2c3e50')
 
-# Load arrow (static)
-mid = num_segments / 2
-ax_beam.annotate('', xy=(mid, 1.0), xytext=(mid, 1.6),
-                 arrowprops=dict(arrowstyle='->', color='red', lw=3))
-ax_beam.text(mid, 1.7, 'Repeated Load', ha='center', fontsize=10,
-             fontweight='bold', color='red')
+# ---- Draw sky gradient (background) ----
+for i in range(20):
+    y_start = 1.8 + i * 0.085
+    alpha_val = 0.08 - i * 0.003
+    if alpha_val > 0:
+        ax_beam.axhspan(y_start, y_start + 0.085, color='#87CEEB', alpha=alpha_val)
 
-# Supports (triangles)
-support_size = 0.15
-ax_beam.plot([0, -support_size, support_size, 0],
-             [-0.1, -0.35, -0.35, -0.1], 'k-', lw=2)
-ax_beam.plot([num_segments, num_segments - support_size, num_segments + support_size, num_segments],
-             [-0.1, -0.35, -0.35, -0.1], 'k-', lw=2)
+# ---- Draw water/ground underneath ----
+water = mpatches.FancyBboxPatch((-1.5, -2.5), num_segments + 3, 1.8,
+                                 boxstyle="square", facecolor='#5dade2',
+                                 edgecolor='none', alpha=0.25)
+ax_beam.add_patch(water)
+# Water ripples
+for wx in np.linspace(-1.0, num_segments + 1.0, 8):
+    ax_beam.plot([wx - 0.15, wx + 0.15], [-1.2, -1.2], color='#3498db',
+                 linewidth=1, alpha=0.4)
+ax_beam.text(num_segments / 2, -1.8, '~ Water Level ~', ha='center',
+             fontsize=7, color='#2980b9', fontstyle='italic', alpha=0.6)
 
-# Segment rectangles (will be updated)
+# ---- Draw support piers (concrete columns) ----
+pier_width = 0.35
+pier_color = '#95a5a6'
+pier_edge = '#7f8c8d'
+
+# Left pier
+left_pier = mpatches.FancyBboxPatch((-pier_width / 2, -1.5), pier_width, 1.55,
+                                     boxstyle="round,pad=0.02",
+                                     facecolor=pier_color, edgecolor=pier_edge,
+                                     linewidth=1.5)
+ax_beam.add_patch(left_pier)
+# Pier cap (wider top)
+left_cap = mpatches.FancyBboxPatch((-pier_width / 2 - 0.1, -0.05), pier_width + 0.2, 0.12,
+                                    boxstyle="round,pad=0.01",
+                                    facecolor='#7f8c8d', edgecolor=pier_edge, linewidth=1)
+ax_beam.add_patch(left_cap)
+# Pier base
+left_base = mpatches.FancyBboxPatch((-pier_width / 2 - 0.15, -1.55), pier_width + 0.3, 0.12,
+                                     boxstyle="round,pad=0.01",
+                                     facecolor='#7f8c8d', edgecolor=pier_edge, linewidth=1)
+ax_beam.add_patch(left_base)
+
+# Right pier
+right_pier = mpatches.FancyBboxPatch((num_segments - pier_width / 2, -1.5),
+                                      pier_width, 1.55,
+                                      boxstyle="round,pad=0.02",
+                                      facecolor=pier_color, edgecolor=pier_edge,
+                                      linewidth=1.5)
+ax_beam.add_patch(right_pier)
+right_cap = mpatches.FancyBboxPatch((num_segments - pier_width / 2 - 0.1, -0.05),
+                                     pier_width + 0.2, 0.12,
+                                     boxstyle="round,pad=0.01",
+                                     facecolor='#7f8c8d', edgecolor=pier_edge, linewidth=1)
+ax_beam.add_patch(right_cap)
+right_base = mpatches.FancyBboxPatch((num_segments - pier_width / 2 - 0.15, -1.55),
+                                      pier_width + 0.3, 0.12,
+                                      boxstyle="round,pad=0.01",
+                                      facecolor='#7f8c8d', edgecolor=pier_edge, linewidth=1)
+ax_beam.add_patch(right_base)
+
+# ---- Draw road deck (asphalt surface on top) ----
+deck_y = 0.8
+deck_h = 0.18
+road_deck = mpatches.FancyBboxPatch((-0.3, deck_y), num_segments + 0.6, deck_h,
+                                     boxstyle="round,pad=0.02",
+                                     facecolor='#515a5a', edgecolor='#2c3e50',
+                                     linewidth=1.5)
+ax_beam.add_patch(road_deck)
+
+# Road dashed center line
+for dx in np.arange(0.1, num_segments - 0.1, 0.35):
+    ax_beam.plot([dx, dx + 0.18], [deck_y + deck_h / 2, deck_y + deck_h / 2],
+                 color='#f1c40f', linewidth=2, solid_capstyle='round')
+
+# Road edge lines
+ax_beam.plot([-0.25, num_segments + 0.25], [deck_y + 0.02, deck_y + 0.02],
+             color='white', linewidth=1, alpha=0.8)
+ax_beam.plot([-0.25, num_segments + 0.25], [deck_y + deck_h - 0.02, deck_y + deck_h - 0.02],
+             color='white', linewidth=1, alpha=0.8)
+
+# ---- Draw railings ----
+railing_h = 0.35
+railing_y = deck_y + deck_h
+# Left railing
+for rx in np.linspace(-0.2, num_segments + 0.2, 12):
+    ax_beam.plot([rx, rx], [railing_y, railing_y + railing_h],
+                 color='#7f8c8d', linewidth=1.2, alpha=0.7)
+ax_beam.plot([-0.2, num_segments + 0.2], [railing_y + railing_h, railing_y + railing_h],
+             color='#566573', linewidth=2)
+
+# ---- Beam segments (structural girders below deck) ----
 seg_patches = []
 seg_texts = []
 seg_label_texts = []
+seg_crack_lines = []
+
 for i in range(num_segments):
-    rect = mpatches.FancyBboxPatch((i + 0.05, 0.0), 0.9, 0.8,
+    # Main beam girder
+    rect = mpatches.FancyBboxPatch((i + 0.03, 0.05), 0.94, 0.73,
                                     boxstyle="round,pad=0.02",
                                     facecolor='#2ecc71', edgecolor='#2c3e50',
                                     linewidth=2)
     ax_beam.add_patch(rect)
     seg_patches.append(rect)
 
-    txt = ax_beam.text(i + 0.5, 0.4, "0.0%", ha='center', va='center',
-                       fontsize=11, fontweight='bold', color='white')
+    # Segment damage percentage text
+    txt = ax_beam.text(i + 0.5, 0.42, "0.0%", ha='center', va='center',
+                       fontsize=12, fontweight='bold', color='white',
+                       bbox=dict(boxstyle='round,pad=0.1', facecolor='none',
+                                 edgecolor='none'))
     seg_texts.append(txt)
 
-    lbl = ax_beam.text(i + 0.5, -0.15, f"Segment {i+1}", ha='center',
-                       fontsize=8, color='#7f8c8d')
+    # Segment label
+    lbl = ax_beam.text(i + 0.5, -0.12, f"Segment {i+1}\n({'Left' if i == 0 else 'Center' if i == 1 else 'Right'})",
+                       ha='center', fontsize=7, color='#2c3e50', fontweight='bold')
     seg_label_texts.append(lbl)
+
+    # Stiffener lines on girder (structural detail)
+    for sy in [0.25, 0.55]:
+        ax_beam.plot([i + 0.08, i + 0.92], [sy, sy],
+                     color='#2c3e50', linewidth=0.5, alpha=0.3)
+
+# ---- Load arrow (traffic load) ----
+mid = num_segments / 2
+ax_beam.annotate('', xy=(mid, railing_y + railing_h + 0.05),
+                 xytext=(mid, railing_y + railing_h + 0.7),
+                 arrowprops=dict(arrowstyle='->', color='#e74c3c', lw=3,
+                                 connectionstyle='arc3'))
+ax_beam.text(mid, railing_y + railing_h + 0.8, 'Repeated Load (Traffic)',
+             ha='center', fontsize=10, fontweight='bold', color='#e74c3c')
+
+# Small vehicle icon on road
+vehicle_x = mid - 0.2
+vehicle_y = deck_y + 0.03
+vehicle = mpatches.FancyBboxPatch((vehicle_x, vehicle_y), 0.4, 0.12,
+                                   boxstyle="round,pad=0.02",
+                                   facecolor='#e74c3c', edgecolor='#c0392b',
+                                   linewidth=1, alpha=0.7)
+ax_beam.add_patch(vehicle)
 
 # --- Middle left: Damage gauge ---
 ax_gauge = fig.add_subplot(gs[1, 0])
@@ -341,30 +634,31 @@ plt.show()
 
 
 # ================================================================
-#   3D BEAM VISUALIZATION (after closing animation)
+#   3D BRIDGE VISUALIZATION (after closing animation)
 # ================================================================
 
-print("  Opening 3D beam visualization...")
+print("  Opening 3D bridge visualization...")
 
-fig3d = plt.figure(figsize=(12, 7))
+fig3d = plt.figure(figsize=(14, 9))
+fig3d.patch.set_facecolor('#e8f4f8')
 ax3d = fig3d.add_subplot(111, projection='3d')
+ax3d.set_facecolor('#d4eaf7')
 
 beam_length = 10.0
 seg_length = beam_length / num_segments
-width = 1.5
-height = 1.0
+width = 2.5
+height = 0.8
+deck_thickness = 0.2
+pier_height = 3.0
+pier_width_3d = 0.6
+railing_height = 0.8
 
 # Use final damage values
 final_damages = [history_damages[i][-1] for i in range(num_segments)]
 
-for i in range(num_segments):
-    x0 = i * seg_length
-    x1 = x0 + seg_length
-    y0, y1 = -width / 2, width / 2
-    z0, z1 = 0, height
 
-    color = get_damage_color(final_damages[i], failure_threshold)
-
+def draw_box(ax, x0, x1, y0, y1, z0, z1, color, edge_color='#2c3e50', alpha=0.85, lw=0.8):
+    """Draw a 3D box given bounds."""
     faces = [
         [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]],  # bottom
         [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]],  # top
@@ -373,51 +667,131 @@ for i in range(num_segments):
         [[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]],  # left
         [[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]],  # right
     ]
-
-    poly = Poly3DCollection(faces, alpha=0.85)
+    poly = Poly3DCollection(faces, alpha=alpha)
     poly.set_facecolor(color)
-    poly.set_edgecolor('#2c3e50')
-    poly.set_linewidth(0.8)
-    ax3d.add_collection3d(poly)
+    poly.set_edgecolor(edge_color)
+    poly.set_linewidth(lw)
+    ax.add_collection3d(poly)
+    return poly
+
+
+# ---- Draw water plane ----
+water_verts = [[[-1, -width, -pier_height], [beam_length + 1, -width, -pier_height],
+                [beam_length + 1, width, -pier_height], [-1, width, -pier_height]]]
+water_poly = Poly3DCollection(water_verts, alpha=0.25)
+water_poly.set_facecolor('#5dade2')
+water_poly.set_edgecolor('#3498db')
+ax3d.add_collection3d(water_poly)
+
+# ---- Draw support piers ----
+pier_positions = [0, beam_length]
+for px in pier_positions:
+    # Main pier column
+    draw_box(ax3d, px - pier_width_3d / 2, px + pier_width_3d / 2,
+             -width / 3, width / 3,
+             -pier_height, 0,
+             color='#95a5a6', edge_color='#7f8c8d', alpha=0.8)
+    # Pier cap (wider)
+    draw_box(ax3d, px - pier_width_3d * 0.8, px + pier_width_3d * 0.8,
+             -width / 2.5, width / 2.5,
+             -0.15, 0.05,
+             color='#7f8c8d', edge_color='#566573', alpha=0.9)
+
+# ---- Draw beam segments (structural girders) ----
+for i in range(num_segments):
+    x0 = i * seg_length
+    x1 = x0 + seg_length
+    y0, y1 = -width / 2, width / 2
+    z0, z1 = 0, height
+
+    color = get_damage_color(final_damages[i], failure_threshold)
+
+    draw_box(ax3d, x0, x1, y0, y1, z0, z1, color=color, alpha=0.85)
 
     # Damage label on top
     pct = min(final_damages[i] / failure_threshold * 100, 100)
-    ax3d.text((x0 + x1) / 2, 0, height + 0.3, f"S{i+1}\n{pct:.0f}%",
-              ha='center', va='bottom', fontsize=10, fontweight='bold',
-              color='#2c3e50')
+    status_lbl, _ = get_status_text(final_damages[i], failure_threshold)
+    ax3d.text((x0 + x1) / 2, 0, height + deck_thickness + 0.15,
+              f"Seg {i+1}\n{pct:.0f}% — {status_lbl}",
+              ha='center', va='bottom', fontsize=9, fontweight='bold',
+              color='#2c3e50',
+              bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7))
 
     # Crack lines for damaged segments
     if final_damages[i] >= failure_threshold * 0.5:
         mid_x = (x0 + x1) / 2
         crack_intensity = min(final_damages[i] / failure_threshold, 1.0)
-        for j in range(int(crack_intensity * 5) + 1):
+        for j in range(int(crack_intensity * 6) + 1):
             cx = mid_x + np.random.uniform(-seg_length * 0.3, seg_length * 0.3)
             cy = np.random.uniform(-width * 0.3, width * 0.3)
-            ax3d.plot([cx, cx], [cy, cy], [z0, z0 + height * crack_intensity * 0.8],
-                      'k-', linewidth=1.5, alpha=0.7)
+            ax3d.plot([cx, cx], [cy, cy], [z0, z0 + height * crack_intensity * 0.9],
+                      'k-', linewidth=1.5, alpha=0.6)
 
-# Supports
-ax3d.scatter([0], [0], [0], color='green', s=200, marker='^', label='Support A', zorder=5)
-ax3d.scatter([beam_length], [0], [0], color='orange', s=200, marker='o', label='Support B', zorder=5)
+    # Stiffener ribs on girder sides
+    for sx in np.linspace(x0 + seg_length * 0.2, x1 - seg_length * 0.2, 3):
+        ax3d.plot([sx, sx], [y0, y0], [z0, z1], color='#2c3e50', lw=0.5, alpha=0.4)
+        ax3d.plot([sx, sx], [y1, y1], [z0, z1], color='#2c3e50', lw=0.5, alpha=0.4)
 
-# Load arrow
+# ---- Draw road deck (asphalt) ----
+deck_z0 = height
+deck_z1 = height + deck_thickness
+draw_box(ax3d, -0.3, beam_length + 0.3,
+         -width / 2 - 0.2, width / 2 + 0.2,
+         deck_z0, deck_z1,
+         color='#515a5a', edge_color='#2c3e50', alpha=0.9, lw=1)
+
+# Road center line (dashed)
+for dx in np.arange(0.3, beam_length - 0.3, 1.2):
+    ax3d.plot([dx, dx + 0.6], [0, 0], [deck_z1 + 0.01, deck_z1 + 0.01],
+             color='#f1c40f', linewidth=3, alpha=0.8)
+
+# Road edge lines
+ax3d.plot([0, beam_length], [-width / 2 - 0.05, -width / 2 - 0.05],
+          [deck_z1 + 0.01, deck_z1 + 0.01], color='white', linewidth=1.5, alpha=0.7)
+ax3d.plot([0, beam_length], [width / 2 + 0.05, width / 2 + 0.05],
+          [deck_z1 + 0.01, deck_z1 + 0.01], color='white', linewidth=1.5, alpha=0.7)
+
+# ---- Draw railings ----
+for rx in np.linspace(0, beam_length, 16):
+    # Front railing posts
+    ax3d.plot([rx, rx], [-width / 2 - 0.2, -width / 2 - 0.2],
+             [deck_z1, deck_z1 + railing_height],
+             color='#566573', linewidth=1.5, alpha=0.7)
+    # Back railing posts
+    ax3d.plot([rx, rx], [width / 2 + 0.2, width / 2 + 0.2],
+             [deck_z1, deck_z1 + railing_height],
+             color='#566573', linewidth=1.5, alpha=0.7)
+
+# Railing top rails
+rail_z = deck_z1 + railing_height
+ax3d.plot([0, beam_length], [-width / 2 - 0.2, -width / 2 - 0.2],
+          [rail_z, rail_z], color='#2c3e50', linewidth=2.5)
+ax3d.plot([0, beam_length], [width / 2 + 0.2, width / 2 + 0.2],
+          [rail_z, rail_z], color='#2c3e50', linewidth=2.5)
+
+# ---- Load arrow ----
 mid_x = beam_length / 2
-ax3d.quiver(mid_x, 0, height + 1.5, 0, 0, -1.0,
+ax3d.quiver(mid_x, 0, deck_z1 + railing_height + 1.5, 0, 0, -1.0,
             color='red', arrow_length_ratio=0.3, linewidth=3)
-ax3d.text(mid_x, 0, height + 2.0, 'LOAD', color='red',
-          fontsize=12, ha='center', fontweight='bold')
+ax3d.text(mid_x, 0, deck_z1 + railing_height + 2.0, 'TRAFFIC LOAD',
+          color='red', fontsize=12, ha='center', fontweight='bold')
 
-ax3d.set_xlabel('Beam Length (m)')
-ax3d.set_ylabel('Width (m)')
-ax3d.set_zlabel('Height (m)')
+# ---- Labels ----
+ax3d.set_xlabel('Beam Length (m)', fontsize=10, labelpad=8)
+ax3d.set_ylabel('Width (m)', fontsize=10, labelpad=8)
+ax3d.set_zlabel('Height (m)', fontsize=10, labelpad=8)
+
+# Set proper limits
+ax3d.set_xlim(-1, beam_length + 1)
+ax3d.set_ylim(-width, width)
+ax3d.set_zlim(-pier_height, deck_z1 + railing_height + 2.5)
 
 total_cycles_run = history_cycles[-1]
 status_label, _ = get_beam_status(final_damages, failure_threshold)
-ax3d.set_title(f"3D Bridge Beam — Final State After {total_cycles_run} Cycles\n"
+ax3d.set_title(f"3D Bridge Model — Final State After {total_cycles_run} Cycles\n"
                f"Status: {status_label} | Max Damage: {max(final_damages):.1%}",
-               fontsize=13, fontweight='bold')
-ax3d.legend(loc='upper right')
-ax3d.view_init(elev=25, azim=-60)
+               fontsize=13, fontweight='bold', pad=15)
+ax3d.view_init(elev=20, azim=-55)
 plt.tight_layout()
 plt.show()
 

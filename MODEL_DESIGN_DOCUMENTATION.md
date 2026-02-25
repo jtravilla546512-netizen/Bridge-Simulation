@@ -20,12 +20,12 @@ In ARENA, you use visual modules. In our Python simulation, each module is repre
 
 | ARENA Module | Python Equivalent | What It Does in Our Simulation | Code Location |
 |-------------|-------------------|-------------------------------|---------------|
-| **Create** | Initialization block | Generates 3 beam segment entities at the start | Lines 110-114 |
-| **Assign** | Parameter assignment | Sets damage=0, factors=[0.5,1.0,0.5], status="SAFE" | Lines 34-42, 110-114 |
-| **Process** | While loop body | Accumulates damage: `damage += increment * factor` | Lines 117-119 |
-| **Decide** | If-statement check | Checks: `damage >= threshold?` → YES=fail, NO=loop | Lines 127-132 |
-| **Dispose** | Break + output | Marks segment FAILED, stops loop, generates results | Lines 134, 443-491 |
-| **Record** | History arrays | Stores every cycle's data for charts and analysis | Lines 121-124 |
+| **Create** | Initialization block | Generates 3 beam segment entities at the start | Lines 293-297 |
+| **Assign** | GUI + Parameter assignment | Sets damage=0, factors=[0.5,1.0,0.5], status="SAFE" via GUI | Lines 50-220, 224-228 |
+| **Process** | While loop body | Accumulates damage: `damage += increment * factor` | Lines 301-305 |
+| **Decide** | If-statement check | Checks: `damage >= threshold?` → YES=fail, NO=loop | Lines 317-323 |
+| **Dispose** | Break + output | Marks segment FAILED, stops loop, generates results | Lines 325, 800-865 |
+| **Record** | History arrays | Stores every cycle's data for charts and analysis | Lines 307-311 |
 
 ---
 
@@ -289,6 +289,63 @@ while True:
 | Visualization | ARENA's built-in animation | Matplotlib 2D animation + 3D plot |
 | Running | Click "Go" in ARENA | `python simulation.py` in terminal |
 | Output | ARENA reports and charts | Console output + saved PNG images |
+
+---
+
+## GUI Parameter Control
+
+The simulation now includes a **Tkinter-based settings window** that launches before the simulation runs. This allows users to adjust all parameters **without editing the code**.
+
+### Parameters Available in the GUI
+
+| Parameter | Default | GUI Control | Description |
+|-----------|---------|-------------|-------------|
+| Damage Increment | 0.002 | Entry field + Slider | Damage added per cycle |
+| Failure Threshold | 1.0 | Entry field + Slider | When damage reaches this → FAILURE |
+| Animation Speed | 20 ms | Entry field | Milliseconds between animation frames |
+| Cycles per Frame | 2 | Entry field | How many cycles advance per frame |
+| Left Segment Factor | 0.5 | Entry field | Damage multiplier for left segment |
+| Center Segment Factor | 1.0 | Entry field | Damage multiplier for center segment |
+| Right Segment Factor | 0.5 | Entry field | Damage multiplier for right segment |
+
+### How to Use
+
+1. Run `python simulation.py`
+2. The settings window appears automatically
+3. Adjust any parameter using the fields or sliders
+4. Click **"Run Simulation"** to start with your chosen values
+5. Click **"Reset Defaults"** to restore original values
+
+**ARENA comparison:** This is equivalent to ARENA's "Run Setup" dialog where you configure replication parameters, warm-up period, and run length before clicking "Go".
+
+---
+
+## Enhanced Bridge Visualization
+
+The 2D and 3D visualizations have been enhanced to look like an actual **beam bridge with piers** rather than simple colored boxes.
+
+### 2D Bridge Features
+
+| Feature | Description |
+|---------|-------------|
+| **Road Deck** | Asphalt road surface on top of beam segments with dashed center line |
+| **Support Piers** | Concrete columns with caps and bases supporting the bridge |
+| **Railings** | Metal railing posts and top rail along both edges |
+| **Water Level** | Blue water area underneath the bridge for context |
+| **Vehicle Icon** | Small red vehicle on the road representing traffic load |
+| **Structural Ribs** | Stiffener lines on beam girders for engineering realism |
+
+### 3D Bridge Features
+
+| Feature | Description |
+|---------|-------------|
+| **Road Deck** | 3D asphalt deck with yellow center line and white edge lines |
+| **Support Piers** | 3D concrete columns with wider caps at the top |
+| **Railings** | 3D railing posts on both sides with continuous top rail |
+| **Water Plane** | Blue water surface below the bridge |
+| **Crack Visualization** | Black crack lines appear on damaged segments |
+| **Stiffener Ribs** | Structural ribs on girder sides for realism |
+| **Status Labels** | Each segment shows damage percentage and status |
 
 ---
 
