@@ -10,7 +10,7 @@ Modeling and Simulation is a computational technique used to represent and analy
 
 Structural fatigue — the progressive weakening of a material subjected to repeated (cyclic) loading — is one of the leading causes of bridge failures. Even when individual load cycles are well below the material's strength, the cumulative effect of many loading cycles can eventually lead to failure.
 
-This project focuses on developing a **Python-based conceptual simulation** of structural fatigue in bridge beams under repeated loading. The simulation uses a **normalized damage accumulation model** to demonstrate the core principles of fatigue. It models a bridge beam divided into 3 segments, applies cyclic damage based on position-dependent factors, tracks damage accumulation at each segment, and presents results through **animated 2D visualization and 3D modeling**.
+This project focuses on developing a **Python-based conceptual simulation** of structural fatigue in bridge beams under repeated loading. The simulation uses a **normalized damage accumulation model** to demonstrate the core principles of fatigue. It models a bridge beam divided into 3 segments, applies cyclic damage based on position-dependent factors, tracks damage accumulation at each segment, and presents results through an **enhanced animated 2D bridge visualization** with real-time damage tracking. The simulation features an **interactive settings GUI** for parameter adjustment, a detailed bridge rendering (with piers, road deck, railings, water level, and a vehicle icon), and a **retry/close dialog** allowing multiple runs with different parameters.
 
 ### Core Formula
 
@@ -27,6 +27,8 @@ This project focuses on developing a **Python-based conceptual simulation** of s
 | **Beam Segments** | 3 portions of the beam where damage is tracked individually |
 | **Load Cycles** | Repeated loading events applied to the beam |
 | **Fatigue Damage State** | The condition (0.0 to 1.0) of each beam segment |
+| **Settings GUI** | Interactive Tkinter window for configuring all simulation parameters |
+| **Retry/Close Dialog** | Post-simulation dialog showing results with option to retry or exit |
 
 ---
 
@@ -52,7 +54,7 @@ This simulation framework aims to:
 1. **Evaluate the fatigue life of a bridge beam** under repeated loading and determine how many cycles it can sustain before structural failure occurs
 2. **Identify the relationship between damage increment and cycles to failure** — specifically, how increasing the damage rate affects the beam's lifespan
 3. **Analyze the spatial distribution of fatigue damage** — determine which beam segments are most vulnerable based on their position (center vs. edges)
-4. **Visualize the progressive degradation process** — provide animated 2D and 3D representations of how a healthy beam transitions through safe, warning, critical, and failed states over time
+4. **Visualize the progressive degradation process** — provide an enhanced animated 2D bridge visualization showing how a healthy beam transitions through safe, warning, critical, and failed states over time, complete with structural details (piers, road deck, railings, water level)
 5. **Demonstrate the cumulative nature of fatigue** — show that individually harmless load cycles can accumulate to cause structural failure
 6. **Enable parameter manipulation** — allow users to change damage increment, failure threshold, and segment factors to observe how different conditions affect fatigue behavior
 7. **Determine the sensitivity of fatigue life to input parameters** — evaluate which parameters have the greatest influence on how long the beam survives
@@ -103,15 +105,18 @@ Default threshold: 1.0
 
 ### 4.5 Simulation Flow
 
-1. Set parameters (damage_increment, failure_threshold, segment_factors)
-2. Initialize 3 beam segments with damage = 0.0
-3. **Loop** through each cycle:
+1. **Display Settings GUI** — user adjusts parameters via Tkinter window (sliders + text fields)
+2. Click "Run Simulation" to start
+3. Initialize 3 beam segments with damage = 0.0
+4. **Loop** through each cycle:
    - `damage += damage_increment * segment_factor` for each segment
    - Check if `damage >= failure_threshold`
    - Record state for visualization
-4. Display animated 2D visualization
-5. Display 3D beam model
+5. Display **enhanced animated 2D bridge visualization** with real-time updates
 6. Save result charts to `results/` folder
+7. Display **Retry/Close dialog** with simulation summary
+   - **Retry**: Returns to Settings GUI for another run
+   - **Close**: Exits the simulation
 
 ---
 
@@ -132,14 +137,14 @@ Default threshold: 1.0
 
 | Output | Description |
 |--------|-------------|
-| Animated 2D visualization | Real-time beam with colored segments, damage gauge, status, chart |
-| 3D beam model | Final-state beam with colored segments and crack effects |
-| Damage distribution | Bar chart of final damage per segment (saved as PNG) |
-| Damage over time | Line plot of damage growth across cycles (saved as PNG) |
+| Enhanced animated 2D visualization | Real-time bridge view with piers, road deck, railings, water level, vehicle icon, colored beam segments, damage gauge, status panel, segment detail panel, and damage-over-time chart |
+| Damage distribution | Bar chart of final damage per segment (saved as `results/damage_distribution.png`) |
+| Damage over time | Line plot of damage growth across cycles (saved as `results/damage_over_time.png`) |
 | Console summary | Cycle-by-cycle text output with final statistics |
 | Cycles to failure | Exact cycle number when first segment reaches threshold |
 | Maximum damage | Highest damage value reached by any segment |
-| Beam status | Overall status: SAFE, WARNING, or FAILED |
+| Beam status | Overall status: SAFE, WARNING, CRITICAL, or FAILED |
+| Retry/Close dialog | Post-simulation summary with option to retry or exit |
 
 ---
 
@@ -165,10 +170,14 @@ The simulation follows this logical flow:
 ```
 START
   |
-Set Parameters (damage_increment, threshold, factors)
-  |
+  v
+Show Settings GUI (Tkinter)
+  |  User adjusts parameters
+  |  Clicks "Run Simulation"
+  v
 Initialize 3 Beam Segments (damage = 0.0 each)
   |
+  v
 +--------------- LOOP ----------------+
 |  For each segment:                  |
 |  damage += damage_increment * factor|
@@ -178,15 +187,24 @@ Initialize 3 Beam Segments (damage = 0.0 each)
 |  |NO --> Loop Back (next cycle)     |
 +-----------+-------------------------+
             |
-   Animated 2D Visualization
+            v
+   Enhanced Animated 2D Bridge Visualization
+   (piers, road, railings, gauge, status, chart)
             |
-   3D Beam Model (Final State)
+            v
+   Save Results (PNG images to results/)
             |
-   Save Results (PNG images)
-            |
+            v
    Print Console Summary
             |
-           END
+            v
+   Show Retry/Close Dialog
+      |               |
+   [Retry]         [Close]
+      |               |
+      v               v
+   Back to         END
+   Settings GUI
 ```
 
 ---
@@ -240,15 +258,15 @@ Initialize 3 Beam Segments (damage = 0.0 each)
   - Damage accumulates linearly and predictably
   - Failure occurs when threshold is reached
 - Entities are well-defined and map to simulation modeling concepts
-- Animation makes the invisible process of fatigue visible
+- Enhanced animated bridge visualization makes the invisible process of fatigue visible and engaging
 
 ### 10.3 Resource Requirements — MINIMAL
 
 | Resource | Requirement |
 |----------|-------------|
-| Python | 3.8+ |
-| NumPy | 1.20+ |
-| Matplotlib | 3.5+ |
+| Python | 3.8+ (tested with 3.14) |
+| NumPy | 1.20+ (tested with 2.4.2) |
+| Matplotlib | 3.5+ (tested with 3.10.8) |
 | Hardware | Any modern PC |
 | Time | < 5 seconds to run |
 
@@ -277,14 +295,19 @@ Initialize 3 Beam Segments (damage = 0.0 each)
 
 ```
 Bridge Simulation/
-+-- simulation.py                # Complete simulation: logic + animated 2D + 3D + saved charts
-+-- results/                     # Output folder for generated images
-|   +-- damage_distribution.png  # Bar chart of final damage per segment
-|   +-- damage_over_time.png     # Line plot of damage growth over cycles
-+-- PROJECT_DOCUMENTATION.md     # This file
-+-- PROPOSAL_DEFENSE_DOCUMENT.md # Full defense proposal
-+-- DEFENSE_DELIVERY_SCRIPT.md   # Slide-by-slide speaking guide
-+-- DEFENSE_CHEAT_SHEET.md       # Printable one-page reference
++-- simulation.py                    # Complete simulation: logic + settings GUI + animated 2D + saved charts + retry dialog
++-- generate_flowchart.py            # Generates a professional 2D flowchart image for the simulation
++-- results/                         # Output folder for generated images
+|   +-- damage_distribution.png      # Bar chart of final damage per segment
+|   +-- damage_over_time.png         # Line plot of damage growth over cycles
+|   +-- simulation_flowchart.png     # Generated flowchart of simulation logic
++-- PROJECT_DOCUMENTATION.md         # This file
++-- MODEL_DESIGN_DOCUMENTATION.md    # Detailed model design documentation
++-- PROPOSAL_DEFENSE_DOCUMENT.md     # Full defense proposal
++-- DEFENSE_DELIVERY_SCRIPT.md       # Slide-by-slide speaking guide
++-- DEFENSE_CHEAT_SHEET.md           # Printable one-page reference
++-- POWERPOINT_SLIDES.md             # PowerPoint slide content guide
++-- .gitignore                       # Git ignore rules
 ```
 
 ---
@@ -300,19 +323,36 @@ python simulation.py
 ```
 
 ### What Happens:
-1. Console prints cycle-by-cycle damage progress
-2. **Animated 2D window opens** — watch damage grow in real-time
-3. Close the animation window -> **3D beam view appears**
-4. Close the 3D window -> **Result images saved to results/**
-5. Final summary printed to console
+1. **Settings GUI window opens** — adjust all parameters using sliders and text fields:
+   - Damage Increment (per cycle)
+   - Failure Threshold
+   - Animation Speed (ms/frame)
+   - Cycles per Frame
+   - Segment Damage Factors (Left, Center, Right)
+2. Click **"Run Simulation"** to start (or **"Reset Defaults"** to restore default values)
+3. Console prints cycle-by-cycle damage progress
+4. **Enhanced animated 2D bridge window opens** — watch damage grow in real-time with:
+   - Detailed bridge structure (support piers, road deck, railings, water level, vehicle icon)
+   - Color-coded beam segments changing from green → yellow → orange → red
+   - Real-time damage gauge, beam status panel, segment detail panel
+   - Live damage-over-time chart
+5. Close the animation window → **Result images saved to `results/`**
+6. Final summary printed to console
+7. **Retry/Close dialog appears** — view summary and choose to:
+   - **Retry**: Go back to Settings GUI with new parameters
+   - **Close**: Exit the simulation
 
-### To Change Parameters:
-Open `simulation.py` and edit the values at the top of the file:
-```python
-damage_increment = 0.002   # Damage per cycle
-failure_threshold = 1.0    # When to fail
-segment_factors = [0.5, 1.0, 0.5]  # Position multipliers
-```
+### Parameters (Configurable via GUI):
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Damage Increment | 0.002 | Damage added per cycle (slider: 0.0005 – 0.05) |
+| Failure Threshold | 1.0 | Damage level that triggers failure (slider: 0.1 – 5.0) |
+| Animation Speed | 20 ms | Milliseconds between animation frames |
+| Cycles per Frame | 2 | Load cycles advanced per animation frame |
+| Left Segment Factor | 0.5 | Damage multiplier for left segment (0.1 – 2.0) |
+| Center Segment Factor | 1.0 | Damage multiplier for center segment (0.1 – 2.0) |
+| Right Segment Factor | 0.5 | Damage multiplier for right segment (0.1 – 2.0) |
 
 ---
 
