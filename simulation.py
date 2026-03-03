@@ -704,8 +704,11 @@ while True:
     # Animation update function
     total_frames = len(history_cycles)
 
-    def animate(frame_idx):
-        idx = min(frame_idx * cycles_per_frame, total_frames - 1)
+    def animate(frame_idx, direct_idx=False):
+        if direct_idx:
+            idx = frame_idx
+        else:
+            idx = min(frame_idx * cycles_per_frame, total_frames - 1)
 
         # Update beam segment colors and text
         for i in range(num_segments):
@@ -746,9 +749,15 @@ while True:
 
         return seg_patches + seg_texts + [gauge_fill, gauge_pct_text, status_bg, status_text, cycle_text] + seg_detail_texts + lines
 
-    num_frames = (total_frames + cycles_per_frame - 1) // cycles_per_frame
+    num_frames = (total_frames + cycles_per_frame - 1) // cycles_per_frame + 1
 
-    anim = animation.FuncAnimation(fig, animate, frames=num_frames,
+    def animate_wrapper(frame_idx):
+        # Ensure the very last frame always shows the final cycle
+        if frame_idx >= num_frames - 1:
+            return animate(total_frames - 1, direct_idx=True)
+        return animate(frame_idx)
+
+    anim = animation.FuncAnimation(fig, animate_wrapper, frames=num_frames,
                                     interval=animation_speed, blit=False, repeat=False)
 
     try:
