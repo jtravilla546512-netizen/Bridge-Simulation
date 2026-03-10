@@ -54,11 +54,8 @@ Testing fatigue on a real bridge is very expensive and takes many years. That is
 | 3 | Detect and report structural failure when threshold is reached | ✅ Complete |
 | 4 | Provide real-time animated 2D visualization of the bridge | ✅ Complete |
 | 5 | Enable parameter experimentation via a GUI settings window | ✅ Complete |
-| 6 | Generate and save result charts (damage distribution & damage over time) | ✅ Complete |
-| 7 | Perform multiple replication runs with varying parameters to analyze fatigue behavior | ✅ Complete |
-| 8 | Interpret and compare results across different simulation scenarios | ✅ Complete |
 
-All 8 objectives are **fully implemented and working** at the 100% mark.
+All 5 objectives are **fully implemented and working** at the 100% mark.
 
 ---
 
@@ -419,7 +416,7 @@ Standard Miner's Rule normalization: $D = \sum \frac{n_i}{N_i} = 1.0$ means fati
 
 # 9. REPLICATION RUNS — MULTIPLE SIMULATION EXPERIMENTS (25%)
 
-This section documents **5 replication runs** of the simulation with different parameter configurations. Each run explores a different "what-if" scenario to demonstrate how changing parameters affects fatigue behavior.
+This section documents **4 replication runs** of the simulation with different parameter configurations. Each run explores a different "what-if" scenario to demonstrate how changing parameters affects fatigue behavior.
 
 ## 9.1 Why Replication Runs?
 
@@ -434,15 +431,14 @@ Our simulation's **Retry feature** makes this easy: after each run, the user can
 
 ## 9.2 How Many Runs and Why?
 
-We performed **5 replication runs**. This number was chosen because:
+We performed **4 replication runs**. This number was chosen because:
 
 - **Run 1 (Default/Baseline):** Establishes the reference point — all other runs are compared to this
 - **Run 2 (Double Damage):** Tests what happens when traffic load is heavier
 - **Run 3 (Half Damage):** Tests what happens when traffic load is lighter
 - **Run 4 (Increased Threshold):** Tests what happens with a stronger bridge (higher fatigue capacity)
-- **Run 5 (Equal Segment Factors):** Tests what happens when all segments are equally vulnerable
 
-Five runs are sufficient because our model is **deterministic** — the same inputs always produce the same outputs (no randomness). Therefore, repeating the same configuration twice would give identical results. Instead, we vary one parameter at a time to isolate the effect of each parameter. This is the standard approach for deterministic simulation analysis.
+Four runs are sufficient because our model is **deterministic** — the same inputs always produce the same outputs (no randomness). Therefore, repeating the same configuration twice would give identical results. Instead, we vary one parameter at a time to isolate the effect of each parameter. This is the standard approach for deterministic simulation analysis.
 
 ---
 
@@ -546,31 +542,6 @@ Five runs are sufficient because our model is **deterministic** — the same inp
 
 ---
 
-### RUN 5: EQUAL VULNERABILITY (Uniform Factors)
-
-| Parameter | Value | Change from Baseline |
-|-----------|-------|---------------------|
-| `damage_increment` | 0.002 | Same |
-| `failure_threshold` | 1.0 | Same |
-| `segment_factors` | **[1.0, 1.0, 1.0]** | All equal |
-
-**Results:**
-
-| Segment | Final Damage | Final Status | Cycles to Threshold |
-|---------|-------------|-------------|-------------------|
-| S1 (Left) | 1.000 (100%) | FAILURE | **500** |
-| S2 (Center) | 1.000 (100%) | FAILURE | **500** |
-| S3 (Right) | 1.000 (100%) | FAILURE | **500** |
-
-**Total cycles run:** 500  
-**Segments to reach threshold:** All three simultaneously
-
-**Observation:** When all segment factors are equal (1.0), **all segments reach the threshold at the same cycle**. This is a critical validation test — it proves that the segment factor system works correctly. With uniform factors, there is no positional vulnerability; every part of the bridge fatigues equally.
-
-**Real-world interpretation:** This scenario represents a hypothetical bridge where every section bears the same stress — unlikely in reality for a simply-supported beam, but useful for testing the simulation's correctness.
-
----
-
 ## 9.4 Replication Summary Table
 
 | Run | Damage Inc. | Threshold | Factors | Cycles to Failure | Which Segment Failed |
@@ -579,7 +550,27 @@ Five runs are sufficient because our model is **deterministic** — the same inp
 | **2 (Double Dmg)** | 0.004 | 1.0 | [0.5, 1.0, 0.5] | **250** | Center |
 | **3 (Half Dmg)** | 0.001 | 1.0 | [0.5, 1.0, 0.5] | **1000** | Center |
 | **4 (High Thresh)** | 0.002 | 2.0 | [0.5, 1.0, 0.5] | **1000** | Center |
-| **5 (Equal Fac)** | 0.002 | 1.0 | [1.0, 1.0, 1.0] | **500** | All three |
+
+## 9.5 Why the Entire Bridge Is Considered to Have Reached Its Structural Fatigue Limit
+
+You might ask: *"Only the center is at 100%. The left and right are only at 50%. So why is the whole bridge considered to have reached its fatigue limit?"*
+
+Here is the simple answer:
+
+**Imagine a wooden plank placed across two chairs, like a simple bridge.** You stand in the middle. The middle bends the most because that is where the weight sits. The parts near the chairs barely bend at all.
+
+Now imagine you keep stepping on that plank over and over — hundreds of times. Eventually, the **middle part** cracks. What happens? **The whole plank is useless.** It does not matter that the parts near the chairs are still strong. You cannot walk across it anymore because the middle cannot hold you.
+
+**A bridge works the same way.** The center segment is the **most critical part** — it carries the most stress. It is the part that holds everything together. If the center's fatigue capacity is fully consumed (100%), the bridge as a whole **cannot safely carry traffic anymore**, even if the edges still have capacity left.
+
+Think of it like a **chain**: a chain is only as strong as its weakest link. If the middle link reaches its fatigue limit, the entire chain has reached its limit — the other links being okay does not help.
+
+So in our simulation:
+- **Center at 100% = the bridge's most critical section can no longer function safely**
+- **Left at 50% and Right at 50% = these parts still have remaining capacity, but it doesn't matter**
+- **Overall = STRUCTURAL FATIGUE LIMIT REACHED** — because the weakest point has been fully consumed
+
+This is exactly how real-world structural engineering works. When engineers say a structure has "reached its fatigue limit," they mean the **most vulnerable component** has accumulated enough damage that the **entire structure is no longer safe to use**.
 
 ---
 
@@ -603,14 +594,6 @@ Halving the damage increment doubled the fatigue life (500 → 1000 cycles). Thi
 ### Run 4 (Stronger Bridge) — Interpretation
 Doubling the failure threshold also doubled the fatigue life (500 → 1000 cycles), just like halving the damage. However, the mechanism is different: here the bridge can **absorb more total damage** before reaching the threshold. The absolute damage values at the end are higher (left/right at 1.0 instead of 0.5), but as a percentage of the threshold, the distribution is identical. This demonstrates that **stronger materials or better engineering design** extends fatigue life proportionally.
 
-### Run 5 (Equal Factors) — Interpretation
-When all segments have equal factors (1.0), the position-dependency is eliminated — all three segments reach the threshold simultaneously at cycle 500. This is an important **validation test** because it confirms that:
-1. The segment factor system works correctly
-2. The simulation doesn't have any hidden bias toward one segment
-3. The center reaches threshold first in the baseline ONLY because of the factor difference, not because of a bug
-
-This test provides confidence that the simulation's results are driven purely by the mathematical model, not by implementation errors.
-
 ## 10.2 Cross-Run Trend Analysis
 
 ### Trend 1: Fatigue Life Formula Holds Across All Runs
@@ -624,9 +607,8 @@ $$N_f = \frac{\text{failure\_threshold}}{\text{damage\_increment} \times \max(\t
 | 2 | 1.0 / (0.004 × 1.0) = **250** | 250 | ✅ |
 | 3 | 1.0 / (0.001 × 1.0) = **1000** | 1000 | ✅ |
 | 4 | 2.0 / (0.002 × 1.0) = **1000** | 1000 | ✅ |
-| 5 | 1.0 / (0.002 × 1.0) = **500** | 500 | ✅ |
 
-**All 5 runs match the formula exactly.** This validates that the simulation correctly implements Miner's Rule of linear cumulative damage.
+**All 4 runs match the formula exactly.** This validates that the simulation correctly implements Miner's Rule of linear cumulative damage.
 
 ### Trend 2: Damage Rate and Fatigue Life are Inversely Proportional
 
@@ -643,15 +625,15 @@ This is the signature of **linear damage accumulation** — the product of damag
 ### Trend 3: Segment Damage Ratio is Constant
 In all runs with factors [0.5, 1.0, 0.5], the edge segments always end at exactly **50% of the center's damage**, regardless of how many cycles the simulation ran. This confirms that the **damage distribution is governed solely by the factor ratios**, not by the total number of cycles or the absolute parameter values.
 
-### Trend 4: The Center Always Fails First (Unless Factors are Equal)
-Across Runs 1–4, the center segment always reaches the threshold first. This is the direct consequence of having the highest factor (1.0). In Run 5 (equal factors), all segments fail together — proving that position-dependent failure is a result of the factor configuration, not an inherent bias.
+### Trend 4: The Center Always Fails First
+Across all 4 runs, the center segment always reaches the threshold first. This is the direct consequence of having the highest factor (1.0). When the center reaches 100%, the entire bridge has reached its structural fatigue limit — even though the edges still have remaining capacity. This is because the most critical section of the beam has been fully consumed (see Section 9.5).
 
 ## 10.3 Key Takeaways from All Runs
 
 1. **The simulation is mathematically consistent** — every result matches Miner's Rule calculations exactly
 2. **The model is predictable** — given any set of parameters, we can calculate the outcome before running the simulation
 3. **Parameter sensitivity is well-defined** — doubling damage halves life, doubling threshold doubles life
-4. **The segment factor system correctly models position-dependent vulnerability** — validated by Run 5
+4. **The bridge reaches its structural fatigue limit when any single segment hits the threshold** — because the weakest link determines overall structural safety (see Section 9.5)
 
 ---
 
@@ -659,7 +641,7 @@ Across Runs 1–4, the center segment always reaches the threshold first. This i
 
 # 11. RECOMMENDATIONS
 
-Based on the complete analysis of 5 replication runs, we offer the following recommendations:
+Based on the complete analysis of 4 replication runs, we offer the following recommendations:
 
 ## 11.1 Recommendations for Using This Simulation
 
@@ -763,19 +745,19 @@ With linear damage, the simulation gives equal warning at every stage — the ju
 
 ---
 
-## 11.3 Why 5 Replication Runs is Sufficient
+## 11.3 Why 4 Replication Runs is Sufficient
 
-For this simulation, **5 replication runs is recommended and sufficient** because:
+For this simulation, **4 replication runs is recommended and sufficient** because:
 
 1. **The model is deterministic** — the same inputs always produce the same outputs. There is no randomness or stochastic variation. Therefore, running the same configuration twice adds no new information.
 
-2. **Each run varies a different parameter** — Run 1 is the baseline, Runs 2–3 vary the damage increment (×2 and ×0.5), Run 4 varies the threshold (×2), and Run 5 varies the factors (uniform). This covers the three main parameters systematically.
+2. **Each run varies a different parameter** — Run 1 is the baseline, Runs 2–3 vary the damage increment (×2 and ×0.5), and Run 4 varies the threshold (×2). This covers the main parameters systematically.
 
-3. **The formula is validated by all 5 runs** — Every run's result matches the predicted value from $N_f = \frac{\text{threshold}}{\text{increment} \times \max(\text{factors})}$. Five matching results is strong evidence that the model is correct.
+3. **The formula is validated by all 4 runs** — Every run's result matches the predicted value from $N_f = \frac{\text{threshold}}{\text{increment} \times \max(\text{factors})}$. Four matching results is strong evidence that the model is correct.
 
-4. **Diminishing returns beyond 5** — Additional runs would show the same inverse-proportional trend. We have already demonstrated the key relationships (double damage → half life, double threshold → double life, equal factors → equal failure).
+4. **Diminishing returns beyond 4** — Additional runs would show the same inverse-proportional trend. We have already demonstrated the key relationships (double damage → half life, double threshold → double life, half damage → double life).
 
-If the model were **stochastic** (with random variation), we would need 20–30+ runs per configuration to build confidence intervals. But since our model is deterministic, 5 systematically varied runs is the right approach.
+If the model were **stochastic** (with random variation), we would need 20–30+ runs per configuration to build confidence intervals. But since our model is deterministic, 4 systematically varied runs is the right approach.
 
 ---
 
@@ -819,18 +801,15 @@ Below are all slides for the **100% final defense**, including the new slides fo
 
 **On the Slide:**
 - **Goal:** Develop a Python-based simulation that models and visualizes cumulative fatigue damage in a bridge beam under repeated loading
-- **8 Objectives (all completed):**
+- **5 Objectives (all completed):**
   1. ✅ Simulate cumulative fatigue damage using a cycle-based model
   2. ✅ Model position-dependent vulnerability using segment factors
   3. ✅ Detect when fatigue reaches the threshold and report it
   4. ✅ Provide real-time animated 2D visualization
   5. ✅ Enable parameter experimentation via GUI
-  6. ✅ Generate and save result charts
-  7. ✅ Perform multiple replication runs with varying parameters
-  8. ✅ Interpret and compare results across different scenarios
 
 **Speaking Script:**
-> "My main goal is to build a Python simulation that shows how fatigue damage builds up in a bridge beam. I have 8 specific objectives. The first 6 were completed at the 75 percent mark: simulate cumulative damage, model position-dependent vulnerability, detect when the threshold is reached, provide animated visualization, enable GUI experimentation, and save results. For the final 25 percent, I added two more: perform 5 replication runs with different parameters, and interpret and compare the results across all runs. All 8 objectives are now complete."
+> "My main goal is to build a Python simulation that shows how fatigue damage builds up in a bridge beam. I have 5 specific objectives: simulate cumulative damage, model position-dependent vulnerability, detect when the threshold is reached, provide animated visualization, and enable GUI experimentation. All 5 objectives are complete."
 
 ---
 
@@ -906,10 +885,9 @@ Below are all slides for the **100% final defense**, including the new slides fo
 | 2 | ×2 damage | **0.004** | 1.0 | [0.5, 1.0, 0.5] | **250** |
 | 3 | ½ damage | **0.001** | 1.0 | [0.5, 1.0, 0.5] | **1000** |
 | 4 | ×2 threshold | 0.002 | **2.0** | [0.5, 1.0, 0.5] | **1000** |
-| 5 | Equal factors | 0.002 | 1.0 | **[1.0, 1.0, 1.0]** | **500** |
 
 **Speaking Script:**
-> "I performed 5 replication runs. Run 1 is the baseline with default parameters — 500 cycles. In Run 2, I doubled the damage increment to 0.004 — the fatigue life was cut exactly in half to 250 cycles. In Run 3, I halved the damage to 0.001 — the life doubled to 1000 cycles. In Run 4, I doubled the threshold to 2.0 — the life also doubled to 1000 cycles. And in Run 5, I set all segment factors to 1.0 — all three segments reached the threshold at the same time at cycle 500. These 5 runs systematically test the three main parameters."
+> "I performed 4 replication runs. Run 1 is the baseline with default parameters — 500 cycles. In Run 2, I doubled the damage increment to 0.004 — the fatigue life was cut exactly in half to 250 cycles. In Run 3, I halved the damage to 0.001 — the life doubled to 1000 cycles. In Run 4, I doubled the threshold to 2.0 — the life also doubled to 1000 cycles. These 4 runs systematically test how damage rate and material strength affect fatigue life."
 
 ---
 
@@ -937,12 +915,11 @@ Below are all slides for the **100% final defense**, including the new slides fo
 | 2 | 1.0 / (0.004 × 1.0) = 250 | 250 | ✅ |
 | 3 | 1.0 / (0.001 × 1.0) = 1000 | 1000 | ✅ |
 | 4 | 2.0 / (0.002 × 1.0) = 1000 | 1000 | ✅ |
-| 5 | 1.0 / (0.002 × 1.0) = 500 | 500 | ✅ |
 
-**5 out of 5 predictions match → Model is validated.**
+**4 out of 4 predictions match → Model is validated.**
 
 **Speaking Script:**
-> "This table shows the validation. For every single run, I calculated the expected number of cycles using the formula BEFORE running the simulation. Then I ran the simulation and compared. All 5 predictions matched exactly. 5 out of 5. This means the simulation correctly follows Miner's Rule — the damage adds up linearly, and the results are mathematically predictable. The model is validated."
+> "This table shows the validation. For every single run, I calculated the expected number of cycles using the formula BEFORE running the simulation. Then I ran the simulation and compared. All 4 predictions matched exactly. 4 out of 4. This means the simulation correctly follows Miner's Rule — the damage adds up linearly, and the results are mathematically predictable. The model is validated."
 
 ---
 
@@ -976,7 +953,7 @@ Below are all slides for the **100% final defense**, including the new slides fo
 
 **Scope:**
 - Cumulative fatigue simulation with 3 segments, GUI, animation, saved charts
-- 5 replication runs with full analysis
+- 4 replication runs with full analysis
 
 **Limitations:**
 - No real-world units (normalized 0–1)
@@ -986,16 +963,16 @@ Below are all slides for the **100% final defense**, including the new slides fo
 - Deterministic — same input = same output
 
 **Speaking Script:**
-> "The scope includes a fully working fatigue simulation with GUI, animation, saved results, and 5 replication runs with full interpretation. The limitations include: normalized values instead of real engineering units, linear damage only, fixed 3 segments, no variable loading, no repair, no environmental factors, and no randomness. These limitations are acceptable because this is an educational model designed to demonstrate the concept of fatigue accumulation, not an engineering design tool."
+> "The scope includes a fully working fatigue simulation with GUI, animation, saved results, and 4 replication runs with full interpretation. The limitations include: normalized values instead of real engineering units, linear damage only, fixed 3 segments, no variable loading, no repair, no environmental factors, and no randomness. These limitations are acceptable because this is an educational model designed to demonstrate the concept of fatigue accumulation, not an engineering design tool."
 
 ---
 
 ## SLIDE 13: Conclusion
 
 **On the Slide:**
-- ✅ All 8 objectives completed
+- ✅ All 5 objectives completed
 - ✅ Working simulation with GUI, animation, and result output
-- ✅ 5 replication runs performed and analyzed
+- ✅ 4 replication runs performed and analyzed
 - ✅ All runs validated against Miner's Rule formula
 - ✅ Inverse-proportional relationship between damage rate and fatigue life confirmed
 - ✅ Position-dependent vulnerability correctly modeled
@@ -1004,7 +981,7 @@ Below are all slides for the **100% final defense**, including the new slides fo
 **"Thank you. I'm ready for your questions."**
 
 **Speaking Script:**
-> "To conclude: all 8 objectives are complete. The simulation works correctly with a GUI, animated bridge visualization, and saved chart results. I performed 5 replication runs with different parameter configurations and analyzed the results. Every single run matched the Miner's Rule formula exactly, confirming the model is valid. The key insight is that fatigue accumulation is predictable — if you know the damage rate and the threshold, you can calculate exactly how many cycles it will take. The center of the bridge is most vulnerable because it experiences the highest bending stress, and this is correctly captured by the segment factor system. Thank you for listening, and I'm ready for your questions."
+> "To conclude: all 5 objectives are complete. The simulation works correctly with a GUI, animated bridge visualization, and saved chart results. I performed 4 replication runs with different parameter configurations and analyzed the results. Every single run matched the Miner's Rule formula exactly, confirming the model is valid. The key insight is that fatigue accumulation is predictable — if you know the damage rate and the threshold, you can calculate exactly how many cycles it will take. The center of the bridge is most vulnerable because it experiences the highest bending stress, and this is correctly captured by the segment factor system. Thank you for listening, and I'm ready for your questions."
 
 ---
 
@@ -1014,12 +991,12 @@ Below are all slides for the **100% final defense**, including the new slides fo
 
 | Rubric Criterion | Weight | What I Demonstrated | Score Target |
 |-----------------|--------|--------------------|--------------| 
-| **Problem Definition & Objectives** | 15% | Clear problem statement, 8 objectives all completed | 15/15 |
+| **Problem Definition & Objectives** | 15% | Clear problem statement, 5 objectives all completed | 15/15 |
 | **Model Design & Structure** | 20% | Complete Create→Assign→Decide→Process→Dispose, 3-segment structure, entities defined | 20/20 |
-| **Simulation Setup & Execution** | 15% | Simulation runs correctly, GUI configurable, valid outputs, 5 replication runs | 15/15 |
-| **Data Usage & Analysis** | 15% | 5 runs analyzed, cross-run trends, formula validation, 5/5 match | 15/15 |
+| **Simulation Setup & Execution** | 15% | Simulation runs correctly, GUI configurable, valid outputs, 4 replication runs | 15/15 |
+| **Data Usage & Analysis** | 15% | 4 runs analyzed, cross-run trends, formula validation, 4/4 match | 15/15 |
 | **Presentation & Usability** | 10% | Professional slides, GUI easy to use, improved visualization with color-coded indicators | 10/10 |
-| **Replication & Analysis (100%)** | 25% | 5 systematic runs, full data interpretation, recommendations provided | 25/25 |
+| **Replication & Analysis (100%)** | 25% | 4 systematic runs, full data interpretation, recommendations provided | 25/25 |
 | **TOTAL** | **100%** | | **100/100** |
 
 ---
