@@ -135,7 +135,7 @@ Our simulation follows the standard simulation modeling pattern:
 | 25% – 49% | 🟡 Yellow | LOW DAMAGE |
 | 50% – 74% | 🟠 Orange | WARNING |
 | 75% – 99% | 🔴 Red | CRITICAL |
-| 100% | 🔴 Dark Red | THRESHOLD REACHED |
+| 100% | 🔴 Dark Red | FAILURE |
 
 ---
 

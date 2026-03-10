@@ -322,20 +322,22 @@ def show_retry_dialog(summary_text):
 
 
 def get_damage_color(damage, threshold):
-    """Return color based on damage level."""
+    """Return color based on damage level (5-level system)."""
     ratio = damage / threshold
     if ratio < 0.25:
-        return '#2ecc71'   # Green — SAFE
+        return '#2ecc71'   # Green — SAFE (0-24%)
     elif ratio < 0.50:
-        return '#f1c40f'   # Yellow — LOW
+        return '#f1c40f'   # Yellow — LOW DAMAGE (25-49%)
     elif ratio < 0.75:
-        return '#e67e22'   # Orange — WARNING
+        return '#e67e22'   # Orange — WARNING (50-74%)
+    elif ratio < 1.0:
+        return '#e74c3c'   # Red — CRITICAL (75-99%)
     else:
-        return '#e74c3c'   # Red — CRITICAL / FAILED
+        return '#8e0000'   # Dark Red — FAILURE (100%)
 
 
 def get_status_text(damage, threshold):
-    """Return status label based on damage level."""
+    """Return status label based on damage level (5-level system)."""
     ratio = damage / threshold
     if ratio < 0.25:
         return 'SAFE', '#2ecc71'
@@ -346,18 +348,21 @@ def get_status_text(damage, threshold):
     elif ratio < 1.0:
         return 'CRITICAL', '#e74c3c'
     else:
-        return 'FAILED', '#c0392b'
+        return 'FAILURE', '#8e0000'
 
 
 def get_beam_status(damages, threshold):
-    """Return overall beam status."""
+    """Return overall beam status based on the worst segment (5-level system)."""
     max_d = max(damages)
-    if max_d >= threshold:
-        return 'FAILED', '#e74c3c'
-    elif max_d >= threshold * 0.75:
+    ratio = max_d / threshold
+    if ratio >= 1.0:
+        return 'FAILURE', '#8e0000'
+    elif ratio >= 0.75:
+        return 'CRITICAL', '#e74c3c'
+    elif ratio >= 0.50:
         return 'WARNING', '#e67e22'
-    elif max_d >= threshold * 0.25:
-        return 'SAFE', '#2ecc71'
+    elif ratio >= 0.25:
+        return 'LOW DAMAGE', '#f1c40f'
     else:
         return 'SAFE', '#2ecc71'
 
@@ -435,7 +440,7 @@ while True:
 
     print("  Opening animated 2D bridge visualization...")
 
-    fig = plt.figure(figsize=(16, 11))
+    fig = plt.figure(figsize=(17, 12))
     fig.patch.set_facecolor('#e8f4f8')
     gs = GridSpec(3, 4, figure=fig, hspace=0.35, wspace=0.30,
                   height_ratios=[3.0, 0.55, 0.7])
@@ -561,9 +566,9 @@ while True:
 
         # Segment damage percentage text
         txt = ax_beam.text(i + 0.5, 0.42, "0.0%", ha='center', va='center',
-                           fontsize=12, fontweight='bold', color='white',
-                           bbox=dict(boxstyle='round,pad=0.1', facecolor='none',
-                                     edgecolor='none'))
+                           fontsize=13, fontweight='bold', color='white',
+                           bbox=dict(boxstyle='round,pad=0.15', facecolor='black',
+                                     edgecolor='none', alpha=0.3))
         seg_texts.append(txt)
 
         # Segment label
@@ -596,29 +601,41 @@ while True:
 
     # --- Middle row: Compact indicators (gauge, status, info, chart) ---
 
-    # Damage gauge (compact)
+    # Damage gauge (compact) — with zone color bands
     ax_gauge = fig.add_subplot(gs[1, 0])
-    ax_gauge.set_title("Damage", fontsize=8, fontweight='bold', color='#2c3e50', pad=2)
+    ax_gauge.set_title("Max Damage", fontsize=8, fontweight='bold', color='#2c3e50', pad=2)
     ax_gauge.set_xlim(0, 1)
     ax_gauge.set_ylim(0, 1.1)
     ax_gauge.set_xticks([])
     ax_gauge.set_yticks([])
 
-    gauge_bg = mpatches.FancyBboxPatch((0.1, 0.05), 0.8, 0.8,
+    gauge_bg = mpatches.FancyBboxPatch((0.1, 0.05), 0.8, 0.85,
                                         boxstyle="round,pad=0.03",
                                         facecolor='#ecf0f1', edgecolor='#bdc3c7', lw=1.5)
     ax_gauge.add_patch(gauge_bg)
 
-    gauge_fill = mpatches.Rectangle((0.2, 0.1), 0.6, 0.0,
+    # Zone color bands on gauge background
+    zone_colors = [('#2ecc71', 0.0, 0.25), ('#f1c40f', 0.25, 0.50),
+                   ('#e67e22', 0.50, 0.75), ('#e74c3c', 0.75, 1.0)]
+    for zc, z0, z1 in zone_colors:
+        ax_gauge.add_patch(mpatches.Rectangle((0.82, 0.1 + z0 * 0.65), 0.06, (z1 - z0) * 0.65,
+                                               facecolor=zc, edgecolor='none', alpha=0.6))
+
+    # Zone labels
+    ax_gauge.text(0.17, 0.1 + 0.25 * 0.65 / 2, '25%', ha='center', fontsize=5, color='#7f8c8d')
+    ax_gauge.text(0.17, 0.1 + 0.50 * 0.65 - 0.02, '50%', ha='center', fontsize=5, color='#7f8c8d')
+    ax_gauge.text(0.17, 0.1 + 0.75 * 0.65 - 0.02, '75%', ha='center', fontsize=5, color='#7f8c8d')
+
+    gauge_fill = mpatches.Rectangle((0.25, 0.1), 0.5, 0.0,
                                      facecolor='#2ecc71', edgecolor='none')
     ax_gauge.add_patch(gauge_fill)
 
-    gauge_border = mpatches.Rectangle((0.2, 0.1), 0.6, 0.65,
+    gauge_border = mpatches.Rectangle((0.25, 0.1), 0.5, 0.65,
                                        facecolor='none', edgecolor='#2c3e50', lw=1.5)
     ax_gauge.add_patch(gauge_border)
 
-    ax_gauge.plot([0.17, 0.83], [0.1 + 0.65, 0.1 + 0.65], 'r--', lw=1.5)
-    ax_gauge.text(0.5, 0.78, 'FAIL', ha='center', fontsize=6, color='red', fontweight='bold')
+    ax_gauge.plot([0.22, 0.90], [0.1 + 0.65, 0.1 + 0.65], 'r--', lw=1.5)
+    ax_gauge.text(0.5, 0.78, 'THRESHOLD', ha='center', fontsize=5.5, color='red', fontweight='bold')
 
     gauge_pct_text = ax_gauge.text(0.5, 0.93, "0%", ha='center', fontsize=14, fontweight='bold', color='#2c3e50')
 
@@ -634,12 +651,19 @@ while True:
                                          boxstyle="round,pad=0.05",
                                          facecolor='#2ecc71', edgecolor='#2c3e50', lw=1.5)
     ax_status.add_patch(status_bg)
-    status_text = ax_status.text(0.5, 0.55, "SAFE", ha='center', va='center',
+    status_text = ax_status.text(0.5, 0.58, "SAFE", ha='center', va='center',
                                   fontsize=16, fontweight='bold', color='white')
-    status_bullet_1 = ax_status.text(0.12, 0.28, "\u25cf SAFE", fontsize=6, color='white')
-    status_bullet_2 = ax_status.text(0.12, 0.18, "\u25cf WARNING", fontsize=6, color='white')
-    status_bullet_3 = ax_status.text(0.55, 0.28, "\u25cf CRITICAL", fontsize=6, color='white')
-    status_bullet_4 = ax_status.text(0.55, 0.18, "\u25cf FAILED", fontsize=6, color='white')
+    # Color-coded legend with colored dots
+    ax_status.text(0.08, 0.30, "\u25cf", fontsize=7, color='#2ecc71', family='monospace')
+    ax_status.text(0.15, 0.30, "SAFE", fontsize=5.5, color='white', family='monospace')
+    ax_status.text(0.08, 0.21, "\u25cf", fontsize=7, color='#f1c40f', family='monospace')
+    ax_status.text(0.15, 0.21, "LOW DMG", fontsize=5.5, color='white', family='monospace')
+    ax_status.text(0.52, 0.30, "\u25cf", fontsize=7, color='#e67e22', family='monospace')
+    ax_status.text(0.59, 0.30, "WARNING", fontsize=5.5, color='white', family='monospace')
+    ax_status.text(0.52, 0.21, "\u25cf", fontsize=7, color='#e74c3c', family='monospace')
+    ax_status.text(0.59, 0.21, "CRITICAL", fontsize=5.5, color='white', family='monospace')
+    ax_status.text(0.30, 0.13, "\u25cf", fontsize=7, color='#8e0000', family='monospace')
+    ax_status.text(0.37, 0.13, "FAILURE (100%)", fontsize=5.5, color='white', family='monospace')
 
     # Cycle counter (compact)
     ax_info = fig.add_subplot(gs[1, 2])
@@ -676,10 +700,15 @@ while True:
     ax_seg_detail.add_patch(seg_detail_bg)
 
     seg_detail_texts = []
+    seg_detail_indicators = []
     for si in range(num_segments):
         seg_name = ['Left', 'Center', 'Right'][si]
-        sdt = ax_seg_detail.text(0.5, 0.75 - si * 0.28, f"S{si+1} ({seg_name}): 0.0%",
-                                  ha='center', fontsize=8, fontweight='bold', color='#2c3e50')
+        # Color indicator dot
+        ind = ax_seg_detail.text(0.08, 0.78 - si * 0.28, "\u25cf", fontsize=10,
+                                  color='#2ecc71', fontweight='bold')
+        seg_detail_indicators.append(ind)
+        sdt = ax_seg_detail.text(0.18, 0.78 - si * 0.28, f"S{si+1} ({seg_name}): 0.0%  SAFE",
+                                  ha='left', fontsize=7.5, fontweight='bold', color='#2c3e50')
         seg_detail_texts.append(sdt)
 
     # --- Bottom row: Damage over time chart (compact) ---
@@ -724,7 +753,7 @@ while True:
         gauge_fill.set_height(fill_height)
         gauge_fill.set_facecolor(get_damage_color(max_d, failure_threshold))
         pct = min(max_d / failure_threshold * 100, 100)
-        gauge_pct_text.set_text(f"{pct:.0f}%")
+        gauge_pct_text.set_text(f"{pct:.1f}%")
 
         # Update status
         status_label, status_color = get_beam_status(
@@ -740,14 +769,15 @@ while True:
             d_si = history_damages[si][idx]
             pct_si = min(d_si / failure_threshold * 100, 100)
             seg_name = ['Left', 'Center', 'Right'][si]
-            st_lbl, _ = get_status_text(d_si, failure_threshold)
-            seg_detail_texts[si].set_text(f"S{si+1} ({seg_name}): {pct_si:.0f}% {st_lbl}")
+            st_lbl, st_clr = get_status_text(d_si, failure_threshold)
+            seg_detail_texts[si].set_text(f"S{si+1} ({seg_name}): {pct_si:.1f}%  {st_lbl}")
+            seg_detail_indicators[si].set_color(st_clr)
 
         # Update chart lines
         for i in range(num_segments):
             lines[i].set_data(history_cycles[:idx+1], history_damages[i][:idx+1])
 
-        return seg_patches + seg_texts + [gauge_fill, gauge_pct_text, status_bg, status_text, cycle_text] + seg_detail_texts + lines
+        return seg_patches + seg_texts + [gauge_fill, gauge_pct_text, status_bg, status_text, cycle_text] + seg_detail_texts + seg_detail_indicators + lines
 
     num_frames = (total_frames + cycles_per_frame - 1) // cycles_per_frame + 1
 
